@@ -1,34 +1,37 @@
 import time
 
-from dagster import pipeline, repository, schedule, solid
+from dagster import graph, op, repository, schedule
 
 
-@solid
+@op
 def hello():
     return 1
 
 
-@solid
+@op
 def hanging_solid():
     while True:
         time.sleep(5)
 
 
-@pipeline
-def hanging_pipeline():
+@graph
+def hanging_graph():
     hanging_solid()
 
 
-@pipeline
-def my_pipeline():
+@graph
+def my_graph():
     hello()
 
 
-@schedule(cron_schedule="* * * * *", pipeline_name="my_pipeline", execution_timezone="US/Central")
+my_job = my_graph.to_job()
+
+
+@schedule(cron_schedule="* * * * *", job=my_job, execution_timezone="US/Central")
 def my_schedule(_context):
     return {}
 
 
 @repository
 def deploy_docker_repository():
-    return [my_pipeline, hanging_pipeline, my_schedule]
+    return [my_job, hanging_graph.to_job(), my_schedule]
